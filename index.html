@@ -47,7 +47,7 @@
         <button class="secondary-btn" onclick="document.getElementById('fileFront').click()"> Photo: Front</button>
         <input type="file" accept="image/*" capture="environment" id="fileFront" style="display:none" onchange="processImage(this, 'front')">
         
-        <button class="secondary-btn" onclick="document.getElementById('fileBack').click()"> Photo: Back (Optional)</button>
+        <button class="secondary-btn" onclick="document.getElementById('fileBack').click()">Photo: Back (Optional)</button>
         <input type="file" accept="image/*" capture="environment" id="fileBack" style="display:none" onchange="processImage(this, 'back')">
         
         <div id="status" class="status-msg">Tap a button to start</div>
@@ -57,7 +57,7 @@
     <div class="card-grid" id="cardGrid"></div>
 
     <div style="margin-top: 40px; border-top: 1px solid #444; padding-top: 20px;">
-        <button class="secondary-btn" onclick="exportData()"> Export Backup (.json)</button>
+        <button class="secondary-btn" onclick="exportData()">Export Backup (.json)</button>
         <button class="secondary-btn" onclick="document.getElementById('importFile').click()"> Merge from Backup</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
     </div>
@@ -151,7 +151,7 @@
                         <div class="card-header">
                             <span class="card-title" onclick="renameCard(${c.id}, '${c.name}')">${c.name}</span>
                             <div class="btn-group">
-                                <button class="action-btn" onclick="rotateCard(${c.id}, 'front')">Γå║ Rot</button>
+                                <button class="action-btn" onclick="rotateCard(${c.id}, 'front')">Rot</button>
                                 <button class="action-btn delete-btn" onclick="deleteCard(${c.id})">Del</button>
                             </div>
                         </div>
