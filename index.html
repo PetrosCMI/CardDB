@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemberVault Pro</title>
+    <style>
+        :root { --primary: #ffb3c1; --dark: #1a1a1a; --card-bg: #2a2a2a; --danger: #ff4d4d; --success: #4CAF50; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--dark); color: white; margin: 0; padding: 20px; padding-bottom: 100px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .controls { background: #333; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #444; }
+        
+        /* Card Display */
+        .card-grid { display: grid; grid-template-columns: 1fr; gap: 25px; }
+        .card { background: var(--card-bg); border-radius: 15px; padding: 15px; border: 1px solid #444; position: relative; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .card-title { font-weight: bold; color: var(--primary); text-decoration: underline dotted; cursor: pointer; flex-grow: 1; }
+        
+        .img-frame { width: 100%; aspect-ratio: 1.58 / 1; background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .card img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.2s; }
+        .card.flipped img.back { display: block; }
+        .card:not(.flipped) img.back { display: none; }
+        .card.flipped img.front { display: none; }
+        .card:not(.flipped) img.front { display: block; }
+
+        /* Utility Buttons */
+        .btn-group { display: flex; gap: 5px; }
+        button { background: var(--primary); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 0; width: 100%; }
+        .secondary-btn { background: #444; color: white; }
+        .action-btn { background: #555; color: white; width: auto; padding: 5px 10px; font-size: 11px; }
+        .delete-btn { color: var(--danger); border: 1px solid var(--danger); background: none; }
+        
+        input[type="text"] { width: 100%; padding: 12px; box-sizing: border-box; border-radius: 8px; border: none; background: #eee; margin-bottom: 10px; }
+        .status-msg { font-size: 0.75rem; color: #888; text-align: center; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>MemberVault</h2>
+        <span id="count">0 Cards</span>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="cardName" placeholder="Store Name (e.g. Costco)">
+        <button class="secondary-btn" onclick="document.getElementById('fileFront').click()">≡ƒô╕ Photo: Front</button>
+        <input type="file" accept="image/*" capture="environment" id="fileFront" style="display:none" onchange="processImage(this, 'front')">
+        
+        <button class="secondary-btn" onclick="document.getElementById('fileBack').click()">≡ƒô╕ Photo: Back (Optional)</button>
+        <input type="file" accept="image/*" capture="environment" id="fileBack" style="display:none" onchange="processImage(this, 'back')">
+        
+        <div id="status" class="status-msg">Tap a button to start</div>
+        <button onclick="saveToVault()" style="background: var(--success); color: white; margin-top: 10px;">+ Add to Vault</button>
+    </div>
+
+    <div class="card-grid" id="cardGrid"></div>
+
+    <div style="margin-top: 40px; border-top: 1px solid #444; padding-top: 20px;">
+        <button class="secondary-btn" onclick="exportData()">≡ƒÆ╛ Export Backup (.json)</button>
+        <button class="secondary-btn" onclick="document.getElementById('importFile').click()">≡ƒôé Merge from Backup</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+
+    <script>
+        let db;
+        let tempImages = { front: null, back: null };
+
+        const request = indexedDB.open("MemberVaultProDB", 2);
+        request.onupgradeneeded = e => {
+            db = e.target.result;
+            if(!db.objectStoreNames.contains("cards")) {
+                db.createObjectStore("cards", { keyPath: "id", autoIncrement: true });
+            }
+        };
+        request.onsuccess = e => { db = e.target.result; renderCards(); };
+
+        async function processImage(input, side) {
+            if (!input.files[0]) return;
+            document.getElementById('status').innerText = `Processing ${side}...`;
+            const base64 = await toBase64(input.files[0]);
+            tempImages[side] = { data: await smartFit(base64), rotation: 0 };
+            document.getElementById('status').innerText = `${side.toUpperCase()} ready.`;
+        }
+
+        function smartFit(base64Str) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = base64Str;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Standard Card Ratio
+                    const isPortrait = img.height > img.width;
+                    canvas.width = isPortrait ? 506 : 800;
+                    canvas.height = isPortrait ? 800 : 506;
+
+                    const imgRatio = img.width / img.height;
+                    const canvasRatio = canvas.width / canvas.height;
+                    let drawW, drawH, offsetX, offsetY;
+
+                    if (imgRatio > canvasRatio) {
+                        drawW = canvas.width; drawH = canvas.width / imgRatio;
+                        offsetX = 0; offsetY = (canvas.height - drawH) / 2;
+                    } else {
+                        drawH = canvas.height; drawW = canvas.height * imgRatio;
+                        offsetX = (canvas.width - drawW) / 2; offsetY = 0;
+                    }
+
+                    ctx.fillStyle = "#000";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+            });
+        }
+
+        function saveToVault() {
+            const name = document.getElementById('cardName').value;
+            if (!name || !tempImages.front) return alert("Add a name and front photo.");
+            
+            const tx = db.transaction("cards", "readwrite");
+            tx.objectStore("cards").add({ name, front: tempImages.front, back: tempImages.back });
+            tx.oncomplete = () => {
+                tempImages = { front: null, back: null };
+                document.getElementById('cardName').value = '';
+                document.getElementById('status').innerText = "Saved!";
+                renderCards();
+            };
+        }
+
+        function rotateCard(id, side) {
+            const tx = db.transaction("cards", "readwrite");
+            const store = tx.objectStore("cards");
+            store.get(id).onsuccess = e => {
+                const card = e.target.result;
+                if(card[side]) {
+                    card[side].rotation = (card[side].rotation + 90) % 360;
+                    store.put(card).onsuccess = renderCards;
+                }
+            };
+        }
+
+        function renderCards() {
+            db.transaction("cards", "readonly").objectStore("cards").getAll().onsuccess = e => {
+                const cards = e.target.result;
+                document.getElementById('count').innerText = `${cards.length} Cards`;
+                document.getElementById('cardGrid').innerHTML = cards.map(c => `
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title" onclick="renameCard(${c.id}, '${c.name}')">${c.name}</span>
+                            <div class="btn-group">
+                                <button class="action-btn" onclick="rotateCard(${c.id}, 'front')">Γå║ Rot</button>
+                                <button class="action-btn delete-btn" onclick="deleteCard(${c.id})">Del</button>
+                            </div>
+                        </div>
+                        <div class="img-frame" onclick="this.parentElement.classList.toggle('flipped')">
+                            <img src="${c.front.data}" class="front" style="transform: rotate(${c.front.rotation}deg)">
+                            <img src="${c.back ? c.back.data : c.front.data}" class="back" style="transform: rotate(${c.back ? c.back.rotation : c.front.rotation}deg)">
+                        </div>
+                    </div>
+                `).join('');
+            };
+        }
+
+        function deleteCard(id) { if(confirm("Delete?")) db.transaction("cards", "readwrite").objectStore("cards").delete(id).onsuccess = renderCards; }
+        
+        function renameCard(id, old) {
+            const n = prompt("New name:", old);
+            if(n && n !== old) {
+                const store = db.transaction("cards", "readwrite").objectStore("cards");
+                store.get(id).onsuccess = e => { const d = e.target.result; d.name = n; store.put(d).onsuccess = renderCards; };
+            }
+        }
+
+        function exportData() {
+            db.transaction("cards", "readonly").objectStore("cards").getAll().onsuccess = e => {
+                const blob = new Blob([JSON.stringify(e.target.result)], {type:"application/json"});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = "MemberVault_Backup.json";
+                a.click();
+            };
+        }
+
+        function importData(event) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const imported = JSON.parse(e.target.result);
+                const store = db.transaction("cards", "readwrite").objectStore("cards");
+                store.getAll().onsuccess = ev => {
+                    const existing = ev.target.result.map(c => c.name.toLowerCase());
+                    imported.forEach(c => { if(!existing.includes(c.name.toLowerCase())) { delete c.id; store.add(c); } });
+                    renderCards();
+                    alert("Merge Complete!");
+                };
+            };
+            reader.readAsText(event.target.files[0]);
+        }
+
+        const toBase64 = f => new Promise(res => { const r = new FileReader(); r.readAsDataURL(f); r.onload = () => res(r.result); });
+    </script>
+</body>
+</html>
