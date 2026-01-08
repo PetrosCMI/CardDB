@@ -9,3 +9,4 @@ Features:
  - Delete a card<br>
  - Backup all cards to a json file.  Can be manually moved somewhere safe.
  - Restore/merge cards from a json file.<br>
+ - App can be loaded via url: https:/petroscmi.github.io/CardDB/
